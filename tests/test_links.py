@@ -236,3 +236,20 @@ def test_link_previews_are_disabled_by_default():
     assert bot.default.parse_mode == "HTML"
     options = bot.session.prepare_value(Default("link_preview"), bot, {})
     assert json.loads(options) == {"is_disabled": True}
+
+
+def test_config_file_is_not_gitignored():
+    """Regression: a ``data/`` rule in .gitignore once kept the file out of the repository."""
+    import shutil
+    import subprocess
+
+    root = Path(__file__).parent.parent
+    git = shutil.which("git")
+    if git is None or not (root / ".git").exists():
+        pytest.skip("not a git checkout")
+    result = subprocess.run(
+        [git, "check-ignore", "-q", "src/schedule_bot/data/tulgu_buildings.toml"],
+        cwd=root,
+        check=False,
+    )
+    assert result.returncode == 1  # 1 = path is not ignored

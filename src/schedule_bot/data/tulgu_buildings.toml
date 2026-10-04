@@ -1,0 +1,108 @@
+# Buildings of Tula State University (ТулГУ) and how rooms are linked to a map.
+#
+# A room such as "9-324" or "Гл.-402" is "<building prefix>-<room>": the part before the first
+# "-" identifies the building. Rooms whose prefix is listed below get a link to a map search
+# for the building's address; every other room (or a building without an address) is shown as
+# plain text - no guessed or broken links.
+#
+# The university publishes no floor plans or room schemes, so the link leads to the building
+# on the map, not to the room itself.
+#
+# To add a building append a [[building]] table:
+#   prefixes - how the building is written in room names (case-insensitive, exact match)
+#   name     - human-readable name (documentation only)
+#   address  - search query for the map; this is what the link opens
+#   page     - official tulsu.ru page of the building (documentation / verification)
+#
+# Addresses are taken from the official building pages https://tulsu.ru/facilities/academic-building/<id>.
+
+# {query} is replaced with the URL-encoded address.
+map_url = "https://yandex.ru/maps/?text={query}"
+
+[[building]]
+prefixes = ["Гл."]
+name = "Главный корпус"
+address = "Тула, проспект Ленина, 92"
+page = "https://tulsu.ru/facilities/academic-building/4"
+
+[[building]]
+prefixes = ["1"]
+name = "Учебный корпус №1"
+address = "Тула, проспект Ленина, 95"
+page = "https://tulsu.ru/facilities/academic-building/2"
+
+[[building]]
+prefixes = ["2"]
+name = "Учебный корпус №2"
+address = "Тула, проспект Ленина, 84"
+page = "https://tulsu.ru/facilities/academic-building/9"
+
+[[building]]
+prefixes = ["3"]
+name = "Учебный корпус №3"
+address = "Тула, проспект Ленина, 84, корпус 8"
+page = "https://tulsu.ru/facilities/academic-building/10"
+
+[[building]]
+prefixes = ["4"]
+name = "Учебный корпус №4"
+address = "Тула, проспект Ленина, 84, корпус 7"
+page = "https://tulsu.ru/facilities/academic-building/11"
+
+[[building]]
+prefixes = ["5"]
+name = "Учебный корпус №5"
+address = "Тула, улица Фридриха Энгельса, 155"
+page = "https://tulsu.ru/facilities/academic-building/12"
+
+[[building]]
+prefixes = ["6"]
+name = "Учебный корпус №6"
+address = "Тула, проспект Ленина, 90"
+page = "https://tulsu.ru/facilities/academic-building/13"
+
+[[building]]
+prefixes = ["7"]
+name = "Учебный корпус №7"
+address = "Тула, проспект Ленина, 93А"
+page = "https://tulsu.ru/facilities/academic-building/15"
+
+[[building]]
+prefixes = ["8"]
+name = "Учебный корпус №8"
+address = "Тула, улица Болдина, 153"
+page = "https://tulsu.ru/facilities/academic-building/16"
+
+[[building]]
+prefixes = ["9"]
+name = "Учебный корпус №9"
+address = "Тула, проспект Ленина, 92"
+page = "https://tulsu.ru/facilities/academic-building/8"
+
+[[building]]
+prefixes = ["10"]
+name = "Учебный корпус №10"
+address = "Тула, улица Болдина, 128"
+page = "https://tulsu.ru/facilities/academic-building/17"
+
+[[building]]
+prefixes = ["11"]
+name = "Учебный корпус №11"
+address = "Тула, улица Болдина, 151"
+page = "https://tulsu.ru/facilities/academic-building/3"
+
+[[building]]
+prefixes = ["12"]
+name = "Учебный корпус №12"
+address = "Тула, улица Агеева, 1Б"
+page = "https://tulsu.ru/facilities/academic-building/18"
+
+[[building]]
+prefixes = ["6лаб"]
+name = "Лабораторный корпус №6"
+address = "Тула, улица Смидович, 3А"
+page = "https://tulsu.ru/facilities/academic-building/14"
+
+# Not listed on purpose (stay plain text): УК №13 - its page https://tulsu.ru/facilities/academic-building/19
+# publishes no address; prefixes 15, 16, 19, "УПК 19", КБП, Спорткорп, ФОЦ, СМ, БХТЦ, hospitals,
+# "Дистанционно" and "Без аудитории" have no building page at all.
