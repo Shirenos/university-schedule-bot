@@ -35,6 +35,7 @@ class Lesson:
     parity: Parity = "every"
     id: int | None = None
     label: str = ""  # optional display name of the lesson type, e.g. "практика"
+    teacher_url: str = ""  # link to the teacher's page; only set for university-sourced names
 
 
 @dataclass(frozen=True, slots=True)

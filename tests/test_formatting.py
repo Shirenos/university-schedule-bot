@@ -21,6 +21,13 @@ from schedule_bot.services.formatting import (
     short_name,
 )
 
+GLAVNY_MAP = (
+    "https://yandex.ru/maps/?text="
+    "%D0%A2%D1%83%D0%BB%D0%B0%2C%20%D0%BF%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82"
+    "%20%D0%9B%D0%B5%D0%BD%D0%B8%D0%BD%D0%B0%2C%2092"
+)
+UK9_MAP = GLAVNY_MAP  # УК №9 has the same address as the main building
+
 MON = date(2026, 10, 5)  # SEMESTER_START is Monday 2026-09-07 -> 2026-10-05 is week 5 (odd)
 
 
@@ -97,7 +104,8 @@ def test_lesson_card_layout():
     lines = card.split("\n")
     assert lines[0] == "🕘 <b>09:00 – 10:30</b>"
     assert lines[1] == "📚 <b>История России</b> · лекция"
-    assert lines[2] == "📍 Гл.-431 · 👤 Чугунова Н. В."
+    # the room is linked to its building; a hand-entered teacher has no verified page
+    assert lines[2] == f'📍 <a href="{GLAVNY_MAP}">Гл.-431</a> · 👤 Чугунова Н. В.'
 
 
 def test_lesson_card_without_room_and_teacher_has_two_lines():
@@ -182,7 +190,7 @@ def test_week_is_compact_and_lists_free_days():
     assert "🔹 <b>Пн, 5 октября</b> — <i>сегодня</i>" in text
     assert "▫️ <b>Ср, 7 октября</b>" in text
     assert "<code>09:40</code> 🔬" not in text
-    assert "<code>07:45</code> 🌐 Иностранный язык · 📍9-324" in text
+    assert f'<code>07:45</code> 🌐 Иностранный язык · 📍<a href="{UK9_MAP}">9-324</a>' in text
     assert "🌿 Свободно: Вт, Чт, Пт, Сб, Вс" in text
     assert "📊 Всего: 5 пар" in text
     # compact: one line per lesson, no teachers
@@ -254,3 +262,14 @@ def test_now_is_timezone_agnostic_for_markers():
     # `now` carries a tzinfo but lessons use naive times; markers must still work.
     aware = datetime(2026, 10, 5, 9, 50, tzinfo=at("2026-10-05").tzinfo)
     assert "идёт сейчас" in format_day(MON, day_lessons(), SEMESTER_START, now=aware)
+
+
+def test_fit_and_split_count_visible_characters_not_urls():
+    line = f'📍 <a href="{GLAVNY_MAP}">Гл.-402</a>'
+    text = "\n".join([line] * 40)  # ~7000 raw characters, ~400 visible
+    assert formatting.fit_message(text, limit=1000) == text
+    assert formatting.split_message(text, limit=1000) == [text]
+    chunks = formatting.split_message(text, limit=100)
+    assert all(formatting.visible_length(chunk) <= 100 for chunk in chunks)
+    assert all(chunk.count("<a ") == chunk.count("</a>") for chunk in chunks)
+    assert "\n".join(chunks) == text

@@ -30,6 +30,9 @@ schedule-bot = "schedule_bot.main:run"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+schedule_bot = ["data/*.toml"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

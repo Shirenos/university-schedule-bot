@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta, tzinfo
 
 from schedule_bot.models import DatedLesson, Lesson
 from schedule_bot.services.filters import split_kind
+from schedule_bot.services.links import teacher_url
 from schedule_bot.services.parity import monday_of, parity_matches, week_parity
 
 # Parity repeats every two weeks, so two weeks of lookahead always finds the next weekly class.
@@ -40,6 +41,7 @@ def dated_as_lesson(dated: DatedLesson) -> Lesson:
         parity="every",
         id=None,
         label="практика" if base.lower().startswith("практ") else "",
+        teacher_url=teacher_url(dated.teacher) or "",
     )
 
 

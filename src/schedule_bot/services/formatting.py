@@ -9,10 +9,11 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
-from html import escape
+from html import escape, unescape
 from typing import Literal
 
 from schedule_bot.models import DatedLesson, Lesson, Parity
+from schedule_bot.services.links import room_url
 from schedule_bot.services.parity import monday_of, week_number, week_parity
 from schedule_bot.services.schedule import lessons_on, week_days
 
@@ -135,12 +136,24 @@ _STATUS_BADGES = {
 }
 
 
+def link(text: str, url: str | None) -> str:
+    """``<a href>`` with escaped text and URL; plain escaped text when there is no URL."""
+    if not url:
+        return escape(text)
+    return f'<a href="{escape(url, quote=True)}">{escape(text)}</a>'
+
+
+def room_html(lesson: Lesson) -> str:
+    """The room, linked to its building on the map when the building is known."""
+    return link(lesson.room, room_url(lesson.room))
+
+
 def _details(lesson: Lesson) -> str:
     parts = []
     if lesson.room:
-        parts.append(f"📍 {escape(lesson.room)}")
+        parts.append(f"📍 {room_html(lesson)}")
     if lesson.teacher:
-        parts.append(f"👤 {escape(short_name(lesson.teacher))}")
+        parts.append(f"👤 {link(short_name(lesson.teacher), lesson.teacher_url)}")
     return " · ".join(parts)
 
 
@@ -176,7 +189,7 @@ def format_lesson_line(lesson: Lesson) -> str:
     """One compact line for the week view: start time, icon, subject and room."""
     line = f"<code>{lesson.start:%H:%M}</code> {lesson_icon(lesson)} {escape(lesson.subject)}"
     if lesson.room:
-        line += f" · 📍{escape(lesson.room)}"
+        line += f" · 📍{room_html(lesson)}"
     return line
 
 
@@ -364,28 +377,38 @@ def format_week_parity(today: date, semester_start: date) -> str:
     return "\n".join(lines)
 
 
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def visible_length(html_text: str) -> int:
+    """Length Telegram counts against its 4096 limit: the text without tags and URLs."""
+    return len(unescape(_TAG_RE.sub("", html_text)))
+
+
 def fit_message(text: str, limit: int = TELEGRAM_LIMIT) -> str:
-    """Trim ``text`` to ``limit`` characters on a line boundary (for messages that get edited)."""
-    if len(text) <= limit:
+    """Trim ``text`` to ``limit`` visible characters on a line boundary (for edited messages)."""
+    if visible_length(text) <= limit:
         return text
-    cut = text[: limit - 2].rsplit("\n", 1)[0]
-    return cut + "\n…"
+    lines = text.split("\n")
+    while len(lines) > 1 and visible_length("\n".join(lines)) > limit - 2:
+        lines.pop()
+    return "\n".join(lines) + "\n…"
 
 
 def split_message(text: str, limit: int = TELEGRAM_LIMIT) -> list[str]:
-    """Split ``text`` on blank lines / newlines so every chunk fits Telegram's limit."""
-    if len(text) <= limit:
+    """Split ``text`` on newlines so every chunk fits Telegram's limit (links count as text)."""
+    if visible_length(text) <= limit:
         return [text]
     chunks: list[str] = []
     current = ""
     for line in text.split("\n"):
         candidate = f"{current}\n{line}" if current else line
-        if len(candidate) <= limit:
+        if visible_length(candidate) <= limit:
             current = candidate
             continue
         if current:
             chunks.append(current)
-        while len(line) > limit:
+        while visible_length(line) > limit:
             chunks.append(line[:limit])
             line = line[limit:]
         current = line

@@ -17,6 +17,7 @@ from aiogram.types import Chat, Message, Update, User
 from schedule_bot.config import Settings
 from schedule_bot.db import Database
 from schedule_bot.handlers import build_router
+from schedule_bot.main import create_bot
 from schedule_bot.models import DatedLesson, Lesson
 from schedule_bot.services.sync import SyncService
 from schedule_bot.services.tulgu import TulguClient
@@ -175,7 +176,7 @@ async def app(db, tmp_path, monkeypatch, tulgu_site):
     user = {"id": user_id, "is_bot": False, "first_name": "Student"}
     chat = {"id": user_id, "type": "private"}
     session = FakeSession()
-    bot = Bot("123456:TEST-TOKEN-NOT-REAL", session=session)
+    bot = create_bot("123456:TEST-TOKEN-NOT-REAL", session=session)
     settings = Settings(
         bot_token="x",
         database_path=tmp_path / "x.db",

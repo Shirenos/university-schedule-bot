@@ -216,3 +216,27 @@ async def test_changing_group_resets_filters(db):
     assert await db.get_filters(1) == {}
     assert [g.subject for g in result.pending] == ["Иностранный язык"]
     assert (await db.get_tulgu(1)).group == GROUP
+
+
+async def test_synced_cards_link_rooms_and_teachers(app, db):
+    await connect_and_choose(app, "фр")
+    app.set_now(at("2026-09-02", "06:00"))
+    await app.say("/today")
+    today = app.session.texts[-1]
+    assert (
+        '📍 <a href="https://yandex.ru/maps/?text=%D0%A2%D1%83%D0%BB%D0%B0%2C%20'
+        "%D0%BF%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82%20%D0%9B%D0%B5%D0%BD%D0%B8%D0%BD%D0%B0"
+        '%2C%2092">9-324</a>' in today
+    )
+    assert (
+        '👤 <a href="https://tulsu.ru/schedule/?search='
+        "%D0%9A%D0%BE%D0%BD%D0%B4%D1%80%D0%B0%D1%82%D1%8C%D0%B5%D0%B2%D0%B0%20"
+        "%D0%98%D1%80%D0%B8%D0%BD%D0%B0%20%D0%90%D0%BB%D0%B5%D0%BA%D1%81%D0%B0%D0%BD%D0%B4%D1%80"
+        '%D0%BE%D0%B2%D0%BD%D0%B0">Кондратьева И. А.</a>' in today
+    )
+    assert ">Гл.-431</a>" in today
+    # a building without a published address stays plain text
+    app.set_now(at("2026-09-10", "06:00"))
+    await app.say("/today")
+    lab = app.session.texts[-1]
+    assert "📍 К-12" in lab and "К-12</a>" not in lab

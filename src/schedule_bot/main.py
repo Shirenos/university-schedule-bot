@@ -7,6 +7,7 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.base import BaseSession
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramAPIError
 
@@ -21,6 +22,15 @@ from schedule_bot.services.tulgu import TulguClient
 logger = logging.getLogger(__name__)
 
 
+def create_bot(token: str, session: BaseSession | None = None) -> Bot:
+    """The bot: HTML parse mode and no link previews (cards contain map / schedule links)."""
+    return Bot(
+        token,
+        session=session,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML, link_preview_is_disabled=True),
+    )
+
+
 async def main() -> None:
     settings = load_settings()
     logging.basicConfig(
@@ -30,7 +40,7 @@ async def main() -> None:
     db = Database(settings.database_path)
     await db.connect()
 
-    bot = Bot(settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = create_bot(settings.bot_token)
     scheduler = ReminderScheduler(db, bot.send_message, settings.timezone, settings.semester_start)
     await scheduler.start()
 
