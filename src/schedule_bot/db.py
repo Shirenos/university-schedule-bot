@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterable
-from datetime import time
+from datetime import date, datetime, time
 from pathlib import Path
 
 import aiosqlite
 
-from schedule_bot.models import DEFAULT_REMIND_MINUTES, Lesson, ReminderSettings
+from schedule_bot.models import (
+    DEFAULT_REMIND_MINUTES,
+    DatedLesson,
+    Lesson,
+    ReminderSettings,
+    TulguSettings,
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS lessons (
@@ -30,6 +36,37 @@ CREATE TABLE IF NOT EXISTS reminders (
     user_id  INTEGER PRIMARY KEY,
     enabled  INTEGER NOT NULL DEFAULT 0,
     minutes  INTEGER NOT NULL DEFAULT 15
+);
+
+CREATE TABLE IF NOT EXISTS dated_lessons (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,
+    date        TEXT    NOT NULL,
+    start       TEXT    NOT NULL,
+    end         TEXT    NOT NULL,
+    subject     TEXT    NOT NULL,
+    kind        TEXT    NOT NULL DEFAULT '',
+    type        TEXT    NOT NULL CHECK (type IN ('lecture', 'seminar', 'lab')),
+    room        TEXT    NOT NULL DEFAULT '',
+    teacher     TEXT    NOT NULL DEFAULT '',
+    group_name  TEXT    NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_dated_user_date ON dated_lessons (user_id, date, start);
+
+CREATE TABLE IF NOT EXISTS tulgu_settings (
+    user_id    INTEGER PRIMARY KEY,
+    group_code TEXT NOT NULL,
+    synced_at  TEXT,
+    min_date   TEXT,
+    max_date   TEXT
+);
+
+CREATE TABLE IF NOT EXISTS lesson_filters (
+    user_id  INTEGER NOT NULL,
+    subject  TEXT    NOT NULL,
+    kind     TEXT    NOT NULL,
+    choice   TEXT    NOT NULL,
+    PRIMARY KEY (user_id, subject, kind)
 );
 """
 
@@ -61,6 +98,26 @@ def _lesson_params(lesson: Lesson) -> tuple[object, ...]:
         lesson.teacher,
         lesson.parity,
     )
+
+
+def _row_to_dated(row: sqlite3.Row) -> DatedLesson:
+    return DatedLesson(
+        id=row["id"],
+        user_id=row["user_id"],
+        date=date.fromisoformat(row["date"]),
+        start=time.fromisoformat(row["start"]),
+        end=time.fromisoformat(row["end"]),
+        subject=row["subject"],
+        kind=row["kind"],
+        type=row["type"],
+        room=row["room"],
+        teacher=row["teacher"],
+        group=row["group_name"],
+    )
+
+
+def _opt_date(value: str | None) -> date | None:
+    return date.fromisoformat(value) if value else None
 
 
 _INSERT_LESSON = (
@@ -153,3 +210,104 @@ class Database:
         """User ids with reminders enabled (used to restore the scheduler at startup)."""
         cur = await self.conn.execute("SELECT user_id FROM reminders WHERE enabled = 1")
         return [row["user_id"] for row in await cur.fetchall()]
+
+    # --- dated lessons (university sync) -----------------------------------------------------
+
+    async def replace_dated_lessons(self, user_id: int, lessons: Iterable[DatedLesson]) -> int:
+        """Atomically replace all of the user's dated lessons; returns how many were stored."""
+        params = [
+            (
+                user_id,
+                lesson.date.isoformat(),
+                lesson.start.strftime("%H:%M"),
+                lesson.end.strftime("%H:%M"),
+                lesson.subject,
+                lesson.kind,
+                lesson.type,
+                lesson.room,
+                lesson.teacher,
+                lesson.group,
+            )
+            for lesson in lessons
+        ]
+        try:
+            await self.conn.execute("DELETE FROM dated_lessons WHERE user_id = ?", (user_id,))
+            await self.conn.executemany(
+                "INSERT INTO dated_lessons "
+                "(user_id, date, start, end, subject, kind, type, room, teacher, group_name) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                params,
+            )
+            await self.conn.commit()
+        except Exception:
+            await self.conn.rollback()
+            raise
+        return len(params)
+
+    async def list_dated_lessons(self, user_id: int) -> list[DatedLesson]:
+        cur = await self.conn.execute(
+            "SELECT * FROM dated_lessons WHERE user_id = ? ORDER BY date, start, id", (user_id,)
+        )
+        return [_row_to_dated(row) for row in await cur.fetchall()]
+
+    async def count_dated_lessons(self, user_id: int) -> int:
+        cur = await self.conn.execute(
+            "SELECT COUNT(*) FROM dated_lessons WHERE user_id = ?", (user_id,)
+        )
+        row = await cur.fetchone()
+        return int(row[0]) if row else 0
+
+    async def clear_dated_lessons(self, user_id: int) -> None:
+        await self.conn.execute("DELETE FROM dated_lessons WHERE user_id = ?", (user_id,))
+        await self.conn.commit()
+
+    # --- ТулГУ settings ----------------------------------------------------------------------
+
+    async def get_tulgu(self, user_id: int) -> TulguSettings | None:
+        cur = await self.conn.execute("SELECT * FROM tulgu_settings WHERE user_id = ?", (user_id,))
+        row = await cur.fetchone()
+        if row is None:
+            return None
+        return TulguSettings(
+            group=row["group_code"],
+            synced_at=datetime.fromisoformat(row["synced_at"]) if row["synced_at"] else None,
+            min_date=_opt_date(row["min_date"]),
+            max_date=_opt_date(row["max_date"]),
+        )
+
+    async def set_tulgu(self, user_id: int, settings: TulguSettings) -> None:
+        await self.conn.execute(
+            "INSERT INTO tulgu_settings (user_id, group_code, synced_at, min_date, max_date) "
+            "VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET "
+            "group_code = excluded.group_code, synced_at = excluded.synced_at, "
+            "min_date = excluded.min_date, max_date = excluded.max_date",
+            (
+                user_id,
+                settings.group,
+                settings.synced_at.isoformat() if settings.synced_at else None,
+                settings.min_date.isoformat() if settings.min_date else None,
+                settings.max_date.isoformat() if settings.max_date else None,
+            ),
+        )
+        await self.conn.commit()
+
+    # --- parallel-subgroup filters -----------------------------------------------------------
+
+    async def get_filters(self, user_id: int) -> dict[tuple[str, str], str]:
+        """Choices as ``{(subject, kind_base): choice}``; ``"*"`` means "show all variants"."""
+        cur = await self.conn.execute(
+            "SELECT subject, kind, choice FROM lesson_filters WHERE user_id = ?", (user_id,)
+        )
+        return {(row["subject"], row["kind"]): row["choice"] for row in await cur.fetchall()}
+
+    async def set_filter(self, user_id: int, subject: str, kind: str, choice: str) -> None:
+        await self.conn.execute(
+            "INSERT INTO lesson_filters (user_id, subject, kind, choice) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(user_id, subject, kind) DO UPDATE SET choice = excluded.choice",
+            (user_id, subject, kind, choice),
+        )
+        await self.conn.commit()
+
+    async def clear_filters(self, user_id: int) -> None:
+        await self.conn.execute("DELETE FROM lesson_filters WHERE user_id = ?", (user_id,))
+        await self.conn.commit()

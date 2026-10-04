@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import time
+from datetime import date, datetime, time
 from typing import Literal
 
 LessonType = Literal["lecture", "seminar", "lab"]
@@ -42,3 +42,34 @@ class ReminderSettings:
 
     enabled: bool = False
     minutes: int = DEFAULT_REMIND_MINUTES
+
+
+@dataclass(frozen=True, slots=True)
+class DatedLesson:
+    """A class on a specific calendar date (e.g. synced from the university website).
+
+    ``kind`` is the raw lesson kind as published (``"Практические занятия (фр)"``);
+    ``type`` is the normalised :data:`LessonType` used for display.
+    """
+
+    user_id: int
+    date: date
+    start: time
+    end: time
+    subject: str
+    kind: str = ""
+    type: LessonType = "seminar"
+    room: str = ""
+    teacher: str = ""
+    group: str = ""
+    id: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TulguSettings:
+    """Per-user ТулГУ sync state."""
+
+    group: str
+    synced_at: datetime | None = None
+    min_date: date | None = None
+    max_date: date | None = None
