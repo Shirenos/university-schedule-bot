@@ -1,4 +1,4 @@
-"""Fake ТулГУ website for tests: the sample payload from tulsu.ru plus a controllable transport."""
+"""Fake TulSU website for tests: the sample payload from tulsu.ru plus a controllable transport."""
 
 from __future__ import annotations
 

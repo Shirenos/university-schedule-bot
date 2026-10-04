@@ -1,4 +1,4 @@
-"""Glue between the ТулГУ client and the database: sync a user's group and report what changed."""
+"""Glue between the TulSU client and the database: sync a user's group and report what changed."""
 
 from __future__ import annotations
 

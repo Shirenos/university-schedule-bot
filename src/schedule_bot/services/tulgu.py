@@ -1,4 +1,4 @@
-"""Client for the public JSON endpoints behind https://tulsu.ru/schedule/ (ТулГУ).
+"""Client for the public JSON endpoints behind https://tulsu.ru/schedule/ (TulSU).
 
 The site publishes the timetable of a student group as a flat JSON list of *dated* lessons.
 No authentication is needed. The client is deliberately gentle with the server: it sends a

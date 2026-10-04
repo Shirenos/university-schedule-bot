@@ -85,7 +85,7 @@ async def test_data_persists_across_reconnect(tmp_path):
         await second.close()
 
 
-# --- dated lessons / ТулГУ / filters ---------------------------------------------------------
+# --- dated lessons / TulSU / filters ---------------------------------------------------------
 
 
 async def test_dated_lessons_roundtrip_and_replace(db):

@@ -3,7 +3,8 @@
 A Telegram bot that keeps your university class schedule at hand: today, tomorrow, the whole
 week, the next class, odd/even week handling and reminders before each lecture.
 Built with **aiogram 3**, **SQLite (aiosqlite)** and a small dependency-free **asyncio scheduler**.
-The bot's user interface is in Russian.
+The bot's user interface is in Russian (message strings and the example output below are shown
+as the bot really sends them; English glosses are added in parentheses where useful).
 
 [![CI](https://github.com/Shirenos/university-schedule-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/Shirenos/university-schedule-bot/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)
@@ -18,12 +19,13 @@ The bot's user interface is in Russian.
 - **Personal schedules** — every Telegram user has their own isolated timetable.
 - **Pretty messages** — HTML cards with emoji per lesson type (📚 lecture, ✏️ practice, 🔬 lab,
   🌐 languages), times as `09:00 – 10:30`, 📍 room (a link to its building on the map), 👤 teacher (a link to their timetable on tulsu.ru), Russian date headers
-  («Понедельник, 5 октября»), week parity and number, 🟢 *«идёт сейчас»* / ⏭ *«следующая»* markers and a
+  («Понедельник, 5 октября» — “Monday, 5 October”), week parity and number, 🟢 *«идёт сейчас»*
+  (“in progress”) / ⏭ *«следующая»* (“next”) markers and a
   friendly empty-day message. All user text is HTML-escaped.
 - **Menu & navigation** — a persistent reply keyboard (Сегодня · Завтра · Неделя · Следующая пара ·
-  Напоминания · Настройки), ◀️ ▶️ day/week buttons that edit the message in place, 🔄 refresh, an inline
+  Напоминания · Настройки — Today · Tomorrow · Week · Next class · Reminders · Settings), ◀️ ▶️ day/week buttons that edit the message in place, 🔄 refresh, an inline
   settings panel and a reminder panel with presets.
-- **ТулГУ sync** — `/tulgu <group>` downloads your group's timetable from the public JSON endpoints
+- **TulSU sync** — `/tulgu <group>` downloads your group's timetable from the public JSON endpoints
   of [tulsu.ru/schedule](https://tulsu.ru/schedule/) (Tula State University) and keeps real, dated
   lessons per user. `/sync` refreshes it; parallel subgroups (French / German / English) can be
   filtered with `/filters`.
@@ -51,9 +53,9 @@ The bot's user interface is in Russian.
 | `/today`, `/tomorrow` | Classes for today / tomorrow (respects week parity) |
 | `/week` | Schedule of the current week |
 | `/next` | The next class and how long until it starts |
-| `/tulgu <group>` | Load the timetable of a ТулГУ group from tulsu.ru (without arguments: show the saved group) |
-| `/sync` | Refresh the ТулГУ timetable |
-| `/filters` | Choose which parallel subgroup to follow (e.g. `фр` / `нем` / `англ`) |
+| `/tulgu <group>` | Load the timetable of a TulSU group from tulsu.ru (without arguments: show the saved group) |
+| `/sync` | Refresh the TulSU timetable |
+| `/filters` | Choose which parallel subgroup to follow (e.g. `фр` / `нем` / `англ` = French / German / English) |
 | `/add` | Add a class step by step (`/cancel` aborts any dialog) |
 | `/list` | Entire weekly timetable with class ids |
 | `/delete <id>` | Delete a class by its id from `/list` |
@@ -79,7 +81,7 @@ mon,12:40,14:10,Физика,lecture,Б-301,Петрова А. С.,odd
 | `room`, `teacher` | optional |
 | `parity` | `every` / `odd` / `even` (also `нечётная` / `чётная`); empty means `every` |
 
-(For a real university timetable use [`/tulgu`](#-тулгу-timetable-sync) instead.)
+(For a real university timetable use [`/tulgu`](#-tulsu-timetable-sync) instead.)
 
 A ready-to-use sample lives in [`examples/schedule.csv`](examples/schedule.csv). Imported classes
 are appended to the existing schedule.
@@ -128,6 +130,11 @@ the same content as formatted Telegram HTML; there 📍 room and 👤 teacher ar
 📊 Всего: 17 пар
 ```
 
+> **Reading the examples:** `Понедельник` = Monday, `сегодня` = today, `чётная неделя №6` = even
+> week no. 6, `идёт сейчас` = in progress, `лекция` = lecture, `пары` = classes, `с … до …` = from …
+> to …, `Свободно` = free, `Всего` = total, `Обновить` = refresh, `Неделя` = week, `Иностранный язык`
+> = foreign language, `Физическая культура и спорт` = physical education.
+
 ### Clickable rooms and teachers
 
 In lesson cards the room and the teacher are links (link previews are switched off for every
@@ -142,8 +149,8 @@ publishes is linked:
 tulsu.ru has no floor plans or room schemes, so the room link opens the *building* on the map, not
 the room. The timetable JSON contains no teacher or building ids, hence the name/address based
 links. Everything that cannot be linked stays plain escaped text: unknown or address-less
-buildings (УК №13 — its official page lists no address; `15`, `16`, `19`, `УПК 19`, `КБП`,
-`Спорткорп`, `Дистанционно`, hospital sites, ...), rooms without a `<building>-<room>` form, and
+buildings (academic building No. 13, “УК №13” — its official page lists no address; `15`, `16`, `19`, `УПК 19`, `КБП`,
+`Спорткорп`, `Дистанционно` (“remote”), hospital sites, ...), rooms without a `<building>-<room>` form, and
 teachers of lessons added by hand (`/add`, `/import`).
 
 The building → address mapping lives in
@@ -172,7 +179,7 @@ The Bot API cannot change a bot's photo. A ready avatar is in [`docs/avatar.png`
 (1024×1024); upload it manually via [@BotFather](https://t.me/BotFather) → `/setuserpic`. It is
 generated by `python scripts/make_avatar.py` (needs `pip install pillow`).
 
-## 🏛 ТулГУ timetable sync
+## 🏛 TulSU timetable sync
 
 The university site [tulsu.ru/schedule](https://tulsu.ru/schedule/) is itself a small JavaScript app
 on top of two public, unauthenticated JSON endpoints. The bot uses the same ones:
@@ -266,7 +273,7 @@ pytest
 ```
 
 Tests cover the parity logic, next-class search, CSV import, the database layer, reminder
-computation and the scheduler (driven by a fake clock), configuration, formatting, the ТулГУ client
+computation and the scheduler (driven by a fake clock), configuration, formatting, the TulSU client
 (`httpx.MockTransport` with a sample payload including parallel French/German subgroups: caching,
 retries, errors), subgroup detection/filtering, the merge of dated and weekly lessons, and the
 `/add`, `/import`, `/tulgu`, `/sync`, `/filters`, menu, navigation and reminder-panel dialogs

@@ -261,7 +261,7 @@ class Database:
         await self.conn.execute("DELETE FROM dated_lessons WHERE user_id = ?", (user_id,))
         await self.conn.commit()
 
-    # --- ТулГУ settings ----------------------------------------------------------------------
+    # --- TulSU settings ----------------------------------------------------------------------
 
     async def get_tulgu(self, user_id: int) -> TulguSettings | None:
         cur = await self.conn.execute("SELECT * FROM tulgu_settings WHERE user_id = ?", (user_id,))

@@ -1,4 +1,4 @@
-"""ТулГУ timetable sync: /tulgu, /sync and /filters (choice of parallel subgroups)."""
+"""TulSU timetable sync: /tulgu, /sync and /filters (choice of parallel subgroups)."""
 
 from __future__ import annotations
 

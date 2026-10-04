@@ -69,7 +69,7 @@ class DatedLesson:
 
 @dataclass(frozen=True, slots=True)
 class TulguSettings:
-    """Per-user ТулГУ sync state."""
+    """Per-user TulSU sync state."""
 
     group: str
     synced_at: datetime | None = None

@@ -1,4 +1,4 @@
-# Buildings of Tula State University (ТулГУ) and how rooms are linked to a map.
+# Buildings of Tula State University (TulSU) and how rooms are linked to a map.
 #
 # A room such as "9-324" or "Гл.-402" is "<building prefix>-<room>": the part before the first
 # "-" identifies the building. Rooms whose prefix is listed below get a link to a map search
@@ -103,6 +103,6 @@ name = "Лабораторный корпус №6"
 address = "Тула, улица Смидович, 3А"
 page = "https://tulsu.ru/facilities/academic-building/14"
 
-# Not listed on purpose (stay plain text): УК №13 - its page https://tulsu.ru/facilities/academic-building/19
+# Not listed on purpose (stay plain text): academic building 13 (УК №13) - its page https://tulsu.ru/facilities/academic-building/19
 # publishes no address; prefixes 15, 16, 19, "УПК 19", КБП, Спорткорп, ФОЦ, СМ, БХТЦ, hospitals,
-# "Дистанционно" and "Без аудитории" have no building page at all.
+# "Дистанционно" (remote) and "Без аудитории" (no room) have no building page at all.

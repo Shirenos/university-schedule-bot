@@ -1,4 +1,4 @@
-"""End-to-end ТулГУ scenarios: commands -> mocked tulsu.ru -> SQLite -> views."""
+"""End-to-end TulSU scenarios: commands -> mocked tulsu.ru -> SQLite -> views."""
 
 from __future__ import annotations
 
