@@ -14,6 +14,70 @@ as the bot really sends them; English glosses are added in parentheses where use
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/Shirenos/university-schedule-bot?style=social)](https://github.com/Shirenos/university-schedule-bot)
 
+<p align="center">
+  <img src="docs/preview-today.png" alt="Interface preview: /today" width="360">
+  &nbsp;&nbsp;
+  <img src="docs/preview-week.png" alt="Interface preview: /week" width="360">
+</p>
+
+<p align="center"><sub><b>Interface preview</b> (mockup rendered from the bot's real message templates) —
+<code>/today</code> and <code>/week</code> with an invented demo timetable (public course titles; the
+teacher name is a placeholder). These are <b>not</b> real screenshots of a Telegram chat; regenerate
+them with <code>python scripts/make_previews.py</code>.</sub></p>
+
+**Try it:** [@Shirenos_Schedule_Bot](https://t.me/Shirenos_Schedule_Bot) on Telegram. The bot runs on
+the owner's own machine, so it may be offline.
+
+<details>
+<summary><b>🇷🇺 Русская версия</b></summary>
+
+### 🎓 University Schedule Bot — бот с расписанием занятий
+
+Telegram-бот, который держит расписание пар под рукой: сегодня, завтра, вся неделя, ближайшая пара,
+чётные/нечётные недели и напоминания перед каждой парой. Интерфейс на русском. Построен на
+**aiogram 3**, **SQLite (aiosqlite)** и небольшом планировщике на `asyncio`.
+
+> Картинки выше — это **макет интерфейса** (отрисован локально из настоящих шаблонов сообщений бота
+> на выдуманных демо-данных), а не реальные скриншоты чата.
+
+**Попробовать:** [@Shirenos_Schedule_Bot](https://t.me/Shirenos_Schedule_Bot). Бот работает на
+личном компьютере владельца, поэтому может быть офлайн.
+
+**Возможности**
+
+- У каждого пользователя своё изолированное расписание.
+- Аккуратные карточки пар: тип занятия, время `09:00 – 10:30`, 📍 аудитория (ссылка на корпус на
+  карте), 👤 преподаватель, пометки «идёт сейчас» и «следующая», номер и чётность недели.
+- Меню и кнопки ◀️ ▶️ для перехода по дням и неделям, обновление сообщения «на месте».
+- Синхронизация с сайтом ТулГУ: `/tulgu <группа>` загружает расписание группы с
+  [tulsu.ru/schedule](https://tulsu.ru/schedule/), `/sync` обновляет, `/filters` выбирает подгруппу
+  (например, французский/немецкий).
+- Быстрые команды: `/today`, `/tomorrow`, `/week`, `/next` (с обратным отсчётом), `/week_parity`.
+- Свои пары: пошаговый диалог `/add`, импорт из CSV `/import`, список `/list`, удаление `/delete`.
+- Напоминания `/remind` за N минут до пары; планировщик восстанавливается после перезапуска.
+- Часовой пояс и дата начала семестра настраиваются (`TIMEZONE`, `SEMESTER_START`).
+
+**Быстрый старт**
+
+```bash
+# 1. создайте бота у @BotFather и скопируйте токен
+cp .env.example .env     # впишите BOT_TOKEN, TIMEZONE и SEMESTER_START (например, 2026-08-31)
+
+# 2a. запуск локально
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt -e .
+python -m schedule_bot
+
+# 2б. или через Docker
+docker compose up -d --build
+```
+
+Затем в чате с ботом: `/tulgu <номер группы>` — и `/today`. Токен хранится только в `.env` (файл в
+`.gitignore`) и никогда не попадает в репозиторий. Проверки:
+`pip install -r requirements-dev.txt -e . && ruff check . && pytest`.
+
+</details>
+
 ## ✨ Features
 
 - **Personal schedules** — every Telegram user has their own isolated timetable.
@@ -90,8 +154,9 @@ are appended to the existing schedule.
 
 The bottom keyboard gives one-tap access to the everyday views; `/today` and `/tomorrow` carry
 ◀️ ▶️ buttons to browse days and 🔄 to refresh, `/week` browses weeks. A text rendition of the
-output for the public timetable of group 221461 on Monday 5 October 2026, 09:50 (the real bot sends
-the same content as formatted Telegram HTML; there 📍 room and 👤 teacher are clickable links):
+output for the public timetable of group 221461 on Monday 5 October 2026, 09:50 (teacher names
+replaced by a placeholder; the real bot sends the same content as formatted Telegram HTML, where
+📍 room and 👤 teacher are clickable links):
 
 ```text
 📅 Понедельник, 5 октября
@@ -100,11 +165,11 @@ the same content as formatted Telegram HTML; there 📍 room and 👤 teacher ar
 
 🕘 07:45 – 09:20 · ✔️
 📚 Культура речи и нормы делового взаимодействия · лекция
-📍 Гл.-402 · 👤 Захарова Н. Н.
+📍 Гл.-402 · 👤 Иванов И. И.
 
 🕘 09:40 – 11:15 · 🟢 идёт сейчас
 📚 Введение в проектную деятельность · лекция
-📍 Гл.-402 · 👤 Кузнецов С. А.
+📍 Гл.-402 · 👤 Иванов И. И.
 
 ━━━━━━━━━━━━━━━
 📊 2 пары · с 07:45 до 11:15
@@ -144,7 +209,7 @@ publishes is linked:
 | Element | Link | When |
 |---|---|---|
 | 📍 `Гл.-402` | map search for the building's address, e.g. `https://yandex.ru/maps/?text=Тула, проспект Ленина, 92` | the part of the room before the first `-` (`Гл.`, `9`, `12`, `6лаб`, ...) is listed in the building config |
-| 👤 `Захарова Н. Н.` | `https://tulsu.ru/schedule/?search=<ФИО>` — the university's own timetable of that teacher | only for lessons synced from tulsu.ru (the full name comes from the university data) |
+| 👤 `Иванов И. И.` | `https://tulsu.ru/schedule/?search=<ФИО>` — the university's own timetable of that teacher | only for lessons synced from tulsu.ru (the full name comes from the university data) |
 
 tulsu.ru has no floor plans or room schemes, so the room link opens the *building* on the map, not
 the room. The timetable JSON contains no teacher or building ids, hence the name/address based
@@ -318,7 +383,8 @@ university-schedule-bot/
 ├── tests/                   # pytest + pytest-asyncio
 ├── examples/schedule.csv    # sample schedule for /import
 ├── scripts/make_avatar.py   # generates docs/avatar.png (Pillow)
-├── docs/                    # avatar.png and extended docs
+├── scripts/make_previews.py # renders docs/preview-*.png (chat mockups, headless Chrome)
+├── docs/                    # avatar.png, preview-*.png (interface mockups)
 ├── .github/workflows/       # CI: ruff + pytest on 3.11 / 3.12 / 3.13
 ├── Dockerfile
 ├── docker-compose.yml
