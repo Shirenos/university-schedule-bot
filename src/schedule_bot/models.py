@@ -34,6 +34,7 @@ class Lesson:
     teacher: str = ""
     parity: Parity = "every"
     id: int | None = None
+    label: str = ""  # optional display name of the lesson type, e.g. "практика"
 
 
 @dataclass(frozen=True, slots=True)

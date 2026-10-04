@@ -26,7 +26,7 @@ def _norm(subject: str) -> str:
 
 def dated_as_lesson(dated: DatedLesson) -> Lesson:
     """Display form of a dated lesson (the parallel-group suffix is kept in the title)."""
-    _, suffix = split_kind(dated.kind)
+    base, suffix = split_kind(dated.kind)
     subject = f"{dated.subject} ({suffix})" if suffix else dated.subject
     return Lesson(
         user_id=dated.user_id,
@@ -39,6 +39,7 @@ def dated_as_lesson(dated: DatedLesson) -> Lesson:
         teacher=dated.teacher,
         parity="every",
         id=None,
+        label="практика" if base.lower().startswith("практ") else "",
     )
 
 
