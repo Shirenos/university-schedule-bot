@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from aiogram import Router
 
-from schedule_bot.handlers import add, basic, importer, manage, remind, view
+from schedule_bot.handlers import add, basic, importer, manage, remind, tulgu, view
 
 
 def build_router() -> Router:
@@ -20,6 +20,7 @@ def build_router() -> Router:
         view.router,
         manage.router,
         remind.router,
+        tulgu.router,
         add.router,
         importer.router,
     )

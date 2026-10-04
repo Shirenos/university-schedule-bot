@@ -14,6 +14,8 @@ from schedule_bot.config import ConfigError, load_settings
 from schedule_bot.db import Database
 from schedule_bot.handlers import build_router
 from schedule_bot.services.reminders import ReminderScheduler
+from schedule_bot.services.sync import SyncService
+from schedule_bot.services.tulgu import TulguClient
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,9 @@ BOT_COMMANDS = [
     BotCommand(command="tomorrow", description="Пары на завтра"),
     BotCommand(command="week", description="Расписание на неделю"),
     BotCommand(command="next", description="Ближайшая пара"),
+    BotCommand(command="tulgu", description="Расписание ТулГУ по номеру группы"),
+    BotCommand(command="sync", description="Обновить расписание ТулГУ"),
+    BotCommand(command="filters", description="Выбор подгруппы"),
     BotCommand(command="add", description="Добавить пару"),
     BotCommand(command="list", description="Всё расписание"),
     BotCommand(command="delete", description="Удалить пару по номеру"),
@@ -45,7 +50,10 @@ async def main() -> None:
     scheduler = ReminderScheduler(db, bot.send_message, settings.timezone, settings.semester_start)
     await scheduler.start()
 
-    dp = Dispatcher(db=db, settings=settings, scheduler=scheduler)
+    tulgu_client = TulguClient()
+    sync_service = SyncService(db, tulgu_client)
+
+    dp = Dispatcher(db=db, settings=settings, scheduler=scheduler, sync_service=sync_service)
     dp.include_router(build_router())
 
     try:
@@ -54,6 +62,7 @@ async def main() -> None:
         await dp.start_polling(bot)
     finally:
         await scheduler.stop()
+        await tulgu_client.aclose()
         await bot.session.close()
         await db.close()
 
