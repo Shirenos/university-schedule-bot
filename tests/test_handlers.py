@@ -44,7 +44,8 @@ async def test_remind_rejects_garbage_and_shows_status(db):
     scheduler.reschedule.assert_not_called()
 
     await remind.cmd_remind(message, command(None), db, scheduler)
-    assert "выключены" in message.answer.call_args.args[0]
+    assert "Выключены" in message.answer.call_args.args[0]
+    assert message.answer.call_args.kwargs["reply_markup"] is not None
 
 
 async def test_delete_command(db):

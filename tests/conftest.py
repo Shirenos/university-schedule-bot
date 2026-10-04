@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.base import BaseSession
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.methods import EditMessageText, SendMessage, TelegramMethod
 from aiogram.types import Chat, Message, Update, User
 
@@ -100,7 +101,8 @@ def tulgu_site() -> TulguSite:
 # per-test state (db, scheduler) is injected through workflow_data and every test gets its own
 # Telegram user id, which keeps the FSM storage isolated.
 _DISPATCHER = Dispatcher()
-_DISPATCHER.include_router(build_router())
+ROOT_ROUTER = build_router()
+_DISPATCHER.include_router(ROOT_ROUTER)
 _USER_IDS = itertools.count(1000)
 FILES: dict[str, bytes] = {}
 
@@ -120,6 +122,8 @@ class FakeSession(BaseSession):
     def __init__(self) -> None:
         super().__init__()
         self.calls: list[TelegramMethod[Any]] = []
+        self.fail_methods: set[type] = set()  # API methods that should fail with BadRequest
+        self._last_edit: dict[tuple[Any, Any], tuple[str, Any]] = {}
 
     async def close(self) -> None:  # pragma: no cover - nothing to close
         pass
@@ -129,6 +133,18 @@ class FakeSession(BaseSession):
 
     async def make_request(self, bot: Bot, method: TelegramMethod[Any], timeout: int | None = None):
         self.calls.append(method)
+        if type(method) in self.fail_methods:
+            raise TelegramBadRequest(method=method, message="Bad Request: simulated failure")
+        if isinstance(method, EditMessageText):
+            # Like Telegram: re-sending identical text and markup is an error.
+            key = (method.chat_id, method.message_id)
+            content = (method.text, method.reply_markup)
+            if self._last_edit.get(key) == content:
+                raise TelegramBadRequest(
+                    method=method, message="Bad Request: message is not modified"
+                )
+            self._last_edit[key] = content
+            return True
         if isinstance(method, SendMessage):
             return Message(
                 message_id=len(self.calls),

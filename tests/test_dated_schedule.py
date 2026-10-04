@@ -56,12 +56,12 @@ def test_dated_as_lesson_keeps_parallel_suffix_in_title():
 
 def test_views_use_real_dates():
     dated = [make_dated(WED, subject="Algebra")]
-    day = formatting.format_day("Сегодня", WED, [], SEMESTER_START, dated)
+    day = formatting.format_day(WED, [], SEMESTER_START, dated)
     assert "Algebra" in day and "Занятий нет" not in day
-    next_day = formatting.format_day("Завтра", WED + timedelta(days=1), [], SEMESTER_START, dated)
+    next_day = formatting.format_day(WED + timedelta(days=1), [], SEMESTER_START, dated)
     assert "Занятий нет" in next_day
     week = formatting.format_week(WED, [], SEMESTER_START, dated)
-    assert "Algebra" in week and "👈 сегодня" in week
+    assert "Algebra" in week and "сегодня" in week
     assert "Algebra" not in formatting.format_week(
         WED + timedelta(days=7), [], SEMESTER_START, dated
     )

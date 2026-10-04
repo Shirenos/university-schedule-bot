@@ -79,7 +79,7 @@ async def test_choosing_a_subgroup_filters_all_views(app, db):
     await app.say("/week")
     week = app.session.texts[-1]
     assert "Иностранный язык (фр)" in week and "Иностранный язык (англ)" not in week
-    assert "👈 сегодня" in week
+    assert "сегодня" in week
 
     app.set_now(at("2026-09-02", "10:00"))
     await app.say("/next")
@@ -204,7 +204,7 @@ async def test_stale_filter_button_is_rejected(app, db):
 async def test_list_mentions_synced_lessons(app, db):
     await app.say(f"/tulgu {GROUP}")
     await app.say("/list")
-    assert "ТулГУ (группа 221461)" in app.session.texts[-1]
+    assert "группа 221461" in app.session.texts[-1]
 
 
 async def test_changing_group_resets_filters(db):

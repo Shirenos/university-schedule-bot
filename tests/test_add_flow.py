@@ -51,7 +51,7 @@ async def test_cancel_and_commands_work_inside_dialog(app, db):
     session, say, uid = app.session, app.say, app.user_id
     await say("/add")
     await say("/help")  # commands are not swallowed by the dialog
-    assert "Команды" in session.texts[-1]
+    assert "Справка" in session.texts[-1]
     await say("/cancel")
     assert session.texts[-1] == "Отменено."
     await say("/cancel")
@@ -66,7 +66,7 @@ async def test_today_command_renders_schedule(app, db):
     await say("/week_parity")
     assert "неделя" in session.texts[-1]
     await say("/next")
-    assert "не найдено" in session.texts[-1]
+    assert "Ближайших занятий нет" in session.texts[-1]
 
 
 CSV = (

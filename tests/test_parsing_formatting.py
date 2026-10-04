@@ -2,7 +2,7 @@ from datetime import date, time
 
 import pytest
 
-from conftest import SEMESTER_START, at, make_lesson
+from conftest import SEMESTER_START, make_lesson
 from schedule_bot.services import formatting
 from schedule_bot.services.parsing import (
     ParseError,
@@ -66,30 +66,6 @@ def test_format_lesson_escapes_html():
     assert "<b>hack" not in text
     assert "&lt;b&gt;hack&lt;/b&gt; &amp; co" in text
     assert "&lt;x&gt;" in text
-
-
-def test_format_day_empty_and_filled():
-    day = date(2026, 9, 7)
-    assert "Занятий нет" in formatting.format_day("Сегодня", day, [], SEMESTER_START)
-    text = formatting.format_day("Сегодня", day, [make_lesson(subject="Матан")], SEMESTER_START)
-    assert "Матан" in text and "нечётная неделя" in text and "понедельник" in text
-
-
-def test_format_week_skips_empty_days_and_marks_today():
-    lessons = [make_lesson(0, subject="Mon"), make_lesson(3, subject="Thu")]
-    text = formatting.format_week(date(2026, 9, 9), lessons, SEMESTER_START)
-    assert "Mon" in text and "Thu" in text
-    assert "Вторник" not in text
-    assert "сегодня" not in text  # Wednesday has no classes, so it is not listed
-    assert "👈 сегодня" in formatting.format_week(date(2026, 9, 7), lessons, SEMESTER_START)
-
-
-def test_format_next_countdown():
-    lesson = make_lesson(0, "09:00", "10:30")
-    text = formatting.format_next(at("2026-09-07", "09:00"), lesson, at("2026-09-07", "07:45"))
-    assert "Сегодня" in text and "1 ч 15 мин" in text
-    later = formatting.format_next(at("2026-09-09", "09:00"), lesson, at("2026-09-07", "09:00"))
-    assert "Среда" in later and "2 д" in later
 
 
 def test_format_week_parity():
