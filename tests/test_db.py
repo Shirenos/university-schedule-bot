@@ -1,6 +1,8 @@
-from conftest import make_lesson
+from datetime import UTC, date, datetime
+
+from conftest import make_dated, make_lesson
 from schedule_bot.db import Database
-from schedule_bot.models import DEFAULT_REMIND_MINUTES
+from schedule_bot.models import DEFAULT_REMIND_MINUTES, TulguSettings
 
 
 async def test_add_and_list_roundtrip(db):
@@ -81,3 +83,59 @@ async def test_data_persists_across_reconnect(tmp_path):
         assert (await second.get_reminder(1)).minutes == 20
     finally:
         await second.close()
+
+
+# --- dated lessons / ТулГУ / filters ---------------------------------------------------------
+
+
+async def test_dated_lessons_roundtrip_and_replace(db):
+    day = date(2026, 9, 2)
+    first = [
+        make_dated(day, "09:00", "10:30", subject="B", kind="Практические занятия (фр)"),
+        make_dated(day, "07:45", "09:20", subject="A"),
+    ]
+    assert await db.replace_dated_lessons(1, first) == 2
+    stored = await db.list_dated_lessons(1)
+    assert [lesson.subject for lesson in stored] == ["A", "B"]  # sorted by date, start
+    assert stored[1].kind == "Практические занятия (фр)"
+    assert (stored[0].date, stored[0].group, stored[0].type) == (day, "221461", "lecture")
+    assert await db.count_dated_lessons(1) == 2
+
+    await db.replace_dated_lessons(1, [make_dated(day, subject="only")])
+    assert [lesson.subject for lesson in await db.list_dated_lessons(1)] == ["only"]
+
+
+async def test_dated_lessons_are_per_user(db):
+    day = date(2026, 9, 2)
+    await db.replace_dated_lessons(1, [make_dated(day, subject="mine", user_id=1)])
+    await db.replace_dated_lessons(2, [make_dated(day, subject="theirs", user_id=2)])
+    await db.replace_dated_lessons(1, [])
+    assert await db.count_dated_lessons(1) == 0
+    assert [lesson.subject for lesson in await db.list_dated_lessons(2)] == ["theirs"]
+
+
+async def test_clear_dated_lessons(db):
+    await db.replace_dated_lessons(1, [make_dated(date(2026, 9, 2))])
+    await db.clear_dated_lessons(1)
+    assert await db.count_dated_lessons(1) == 0
+
+
+async def test_tulgu_settings_roundtrip(db):
+    assert await db.get_tulgu(1) is None
+    synced = datetime(2026, 10, 4, 12, 0, tzinfo=UTC)
+    await db.set_tulgu(1, TulguSettings("221461", synced, date(2026, 8, 31), date(2026, 12, 27)))
+    stored = await db.get_tulgu(1)
+    assert stored == TulguSettings("221461", synced, date(2026, 8, 31), date(2026, 12, 27))
+    await db.set_tulgu(1, TulguSettings("221462"))
+    assert (await db.get_tulgu(1)) == TulguSettings("221462", None, None, None)
+
+
+async def test_filters_upsert_and_clear(db):
+    assert await db.get_filters(1) == {}
+    await db.set_filter(1, "Иностранный язык", "Практические занятия", "фр")
+    await db.set_filter(1, "Иностранный язык", "Практические занятия", "нем")
+    await db.set_filter(2, "Иностранный язык", "Практические занятия", "фр")
+    assert await db.get_filters(1) == {("Иностранный язык", "Практические занятия"): "нем"}
+    await db.clear_filters(1)
+    assert await db.get_filters(1) == {}
+    assert len(await db.get_filters(2)) == 1
