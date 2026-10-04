@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from html import escape
 
-from schedule_bot.models import Lesson, Parity
+from schedule_bot.models import DatedLesson, Lesson, Parity
 from schedule_bot.services.parity import week_number, week_parity
 from schedule_bot.services.schedule import lessons_on, week_days
 
@@ -64,26 +64,38 @@ def format_lesson(lesson: Lesson, *, with_id: bool = False, with_parity: bool = 
     return head + ("\n    " + " · ".join(details) if details else "")
 
 
-def format_day(title: str, day: date, lessons: Iterable[Lesson], semester_start: date) -> str:
+def format_day(
+    title: str,
+    day: date,
+    lessons: Iterable[Lesson],
+    semester_start: date,
+    dated: Iterable[DatedLesson] = (),
+) -> str:
     """Schedule of a single day, e.g. for /today and /tomorrow."""
     parity = PARITY_ADJECTIVES[week_parity(day, semester_start)]
     header = f"<b>{title}</b> — {WEEKDAYS[day.weekday()]}, {format_date(day)} ({parity} неделя)"
-    todays = lessons_on(lessons, day, semester_start)
+    todays = lessons_on(lessons, day, semester_start, dated)
     if not todays:
         return f"{header}\n\n🎉 Занятий нет."
     body = "\n\n".join(format_lesson(lesson) for lesson in todays)
     return f"{header}\n\n{body}"
 
 
-def format_week(today: date, lessons: Iterable[Lesson], semester_start: date) -> str:
+def format_week(
+    today: date,
+    lessons: Iterable[Lesson],
+    semester_start: date,
+    dated: Iterable[DatedLesson] = (),
+) -> str:
     """Schedule of the current week (Monday-Sunday), empty days are skipped."""
     lessons = list(lessons)
+    dated = list(dated)
     parity = PARITY_ADJECTIVES[week_parity(today, semester_start)]
     days = week_days(today)
     header = f"<b>Неделя {format_date(days[0])} – {format_date(days[-1])}</b> ({parity} неделя)"
     blocks = []
     for day in days:
-        todays = lessons_on(lessons, day, semester_start)
+        todays = lessons_on(lessons, day, semester_start, dated)
         if not todays:
             continue
         marker = " 👈 сегодня" if day == today else ""
@@ -120,7 +132,10 @@ def format_lesson_list(lessons: Iterable[Lesson]) -> str:
     """Full weekly template with ids (for /list)."""
     lessons = list(lessons)
     if not lessons:
-        return "Расписание пусто. Добавьте пару через /add или загрузите CSV через /import."
+        return (
+            "Расписание пусто. Добавьте пару через /add, загрузите CSV через /import "
+            "или подключите расписание ТулГУ: /tulgu."
+        )
     blocks = []
     for weekday in range(7):
         group = [lesson for lesson in lessons if lesson.weekday == weekday]

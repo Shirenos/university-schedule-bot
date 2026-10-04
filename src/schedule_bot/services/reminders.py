@@ -15,9 +15,10 @@ from collections.abc import Awaitable, Callable, Iterable
 from datetime import date, datetime, timedelta, tzinfo
 
 from schedule_bot.db import Database
-from schedule_bot.models import Lesson
+from schedule_bot.models import DatedLesson, Lesson
 from schedule_bot.services.formatting import format_reminder
 from schedule_bot.services.schedule import iter_occurrences
+from schedule_bot.services.timetable import load_timetable
 
 logger = logging.getLogger(__name__)
 
@@ -31,21 +32,23 @@ def next_reminder(
     after: datetime,
     minutes: int,
     semester_start: date,
+    dated: Iterable[DatedLesson] = (),
 ) -> tuple[datetime, Lesson, datetime] | None:
     """Find the next reminder strictly after ``after``.
 
-    Returns ``(fire_at, lesson, lesson_start)`` or ``None`` when there are no lessons.
+    Weekly and dated lessons are merged the same way as in the schedule views. Returns
+    ``(fire_at, lesson, lesson_start)`` or ``None`` when nothing is left to remind about.
     """
     tz = after.tzinfo
     assert tz is not None, "after must be timezone-aware"
-    best: tuple[datetime, Lesson, datetime] | None = None
+    lead = timedelta(minutes=minutes)
     # Start one day early: a class tomorrow at 00:10 with a 30 minute lead fires today.
     since = after.date() - timedelta(days=1)
-    for start, lesson in iter_occurrences(lessons, since, semester_start, tz, days=16):
-        fire_at = start - timedelta(minutes=minutes)
-        if fire_at > after and (best is None or fire_at < best[0]):
-            best = (fire_at, lesson, start)
-    return best
+    # Occurrences come in chronological order, so the first one in the future is the earliest.
+    for start, lesson in iter_occurrences(lessons, since, semester_start, tz, dated=dated):
+        if start - lead > after:
+            return start - lead, lesson, start
+    return None
 
 
 class ReminderScheduler:
@@ -105,8 +108,8 @@ class ReminderScheduler:
             settings = await self._db.get_reminder(user_id)
             if not settings.enabled:
                 return
-            lessons = await self._db.list_lessons(user_id)
-            upcoming = next_reminder(lessons, cursor, settings.minutes, self._semester_start)
+            weekly, dated = await load_timetable(self._db, user_id)
+            upcoming = next_reminder(weekly, cursor, settings.minutes, self._semester_start, dated)
             if upcoming is None:
                 return  # nothing to remind about; /add or /import will reschedule
             fire_at, lesson, _start = upcoming
