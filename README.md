@@ -17,7 +17,7 @@ The bot's user interface is in Russian.
 
 - **Personal schedules** — every Telegram user has their own isolated timetable.
 - **Pretty messages** — HTML cards with emoji per lesson type (📚 lecture, ✏️ practice, 🔬 lab,
-  🌐 languages), times as `09:00 – 10:30`, 📍 room, 👤 teacher, Russian date headers
+  🌐 languages), times as `09:00 – 10:30`, 📍 room (a link to its building on the map), 👤 teacher (a link to their timetable on tulsu.ru), Russian date headers
   («Понедельник, 5 октября»), week parity and number, 🟢 *«идёт сейчас»* / ⏭ *«следующая»* markers and a
   friendly empty-day message. All user text is HTML-escaped.
 - **Menu & navigation** — a persistent reply keyboard (Сегодня · Завтра · Неделя · Следующая пара ·
@@ -89,7 +89,7 @@ are appended to the existing schedule.
 The bottom keyboard gives one-tap access to the everyday views; `/today` and `/tomorrow` carry
 ◀️ ▶️ buttons to browse days and 🔄 to refresh, `/week` browses weeks. A text rendition of the
 output for the public timetable of group 221461 on Monday 5 October 2026, 09:50 (the real bot sends
-the same content as formatted Telegram HTML):
+the same content as formatted Telegram HTML; there 📍 room and 👤 teacher are clickable links):
 
 ```text
 📅 Понедельник, 5 октября
@@ -127,6 +127,38 @@ the same content as formatted Telegram HTML):
 ━━━━━━━━━━━━━━━
 📊 Всего: 17 пар
 ```
+
+### Clickable rooms and teachers
+
+In lesson cards the room and the teacher are links (link previews are switched off for every
+message the bot sends, so the chat stays compact). Nothing is guessed — only what tulsu.ru really
+publishes is linked:
+
+| Element | Link | When |
+|---|---|---|
+| 📍 `Гл.-402` | map search for the building's address, e.g. `https://yandex.ru/maps/?text=Тула, проспект Ленина, 92` | the part of the room before the first `-` (`Гл.`, `9`, `12`, `6лаб`, ...) is listed in the building config |
+| 👤 `Захарова Н. Н.` | `https://tulsu.ru/schedule/?search=<ФИО>` — the university's own timetable of that teacher | only for lessons synced from tulsu.ru (the full name comes from the university data) |
+
+tulsu.ru has no floor plans or room schemes, so the room link opens the *building* on the map, not
+the room. The timetable JSON contains no teacher or building ids, hence the name/address based
+links. Everything that cannot be linked stays plain escaped text: unknown or address-less
+buildings (УК №13 — its official page lists no address; `15`, `16`, `19`, `УПК 19`, `КБП`,
+`Спорткорп`, `Дистанционно`, hospital sites, ...), rooms without a `<building>-<room>` form, and
+teachers of lessons added by hand (`/add`, `/import`).
+
+The building → address mapping lives in
+[`src/schedule_bot/data/tulgu_buildings.toml`](src/schedule_bot/data/tulgu_buildings.toml). To
+support another building append a table (no code changes, the file is read at start):
+
+```toml
+[[building]]
+prefixes = ["14"]                       # as written before "-" in room names
+name = "Учебный корпус №14"
+address = "Тула, улица Примерная, 1"    # what the map link searches for
+page = "https://tulsu.ru/facilities/academic-building/20"
+```
+
+The map service can be changed with the `map_url` template at the top of the same file.
 
 ### Bot profile and avatar
 
@@ -250,6 +282,7 @@ university-schedule-bot/
 │   ├── db.py                # aiosqlite repository + schema
 │   ├── models.py            # Lesson / ReminderSettings dataclasses
 │   ├── main.py              # Wiring: bot, dispatcher, scheduler
+│   ├── data/tulgu_buildings.toml  # building prefixes -> addresses (map links)
 │   ├── profile.py           # Bot API profile: name, descriptions, commands, menu button
 │   ├── __main__.py          # `python -m schedule_bot`
 │   ├── handlers/            # aiogram routers
@@ -269,6 +302,7 @@ university-schedule-bot/
 │       ├── parsing.py       #   weekday / time / type / parity parsers
 │       ├── csv_import.py    #   CSV → lessons
 │       ├── formatting.py    #   HTML message rendering (Russian)
+│       ├── links.py         #   room -> map and teacher -> tulsu.ru links
 │       ├── tulgu.py         #   tulsu.ru HTTP client (UA, timeouts, retries, cache)
 │       ├── filters.py       #   parallel-subgroup detection and filtering
 │       ├── sync.py          #   sync a user's group into SQLite
