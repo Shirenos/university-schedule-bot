@@ -20,7 +20,7 @@ from schedule_bot.services.tulgu import TulguError, is_valid_group
 router = Router(name="tulgu")
 
 USAGE = (
-    "🏛 <b>Расписание ТулГУ</b>\n\n"
+    "🏛 <b>Расписание ТулГУ</b>\n━━━━━━━━━━━━━━━\n\n"
     "Укажите номер группы, например: <code>/tulgu 221461</code> — я загружу расписание "
     "с сайта tulsu.ru и буду показывать его в /today, /tomorrow, /week и /next.\n"
     "Обновить данные позже — /sync."
@@ -29,14 +29,14 @@ CACHE_NOTE = "Данные взяты из кэша: сайт опрашивае
 
 
 def _describe(tulgu: TulguSettings, settings: Settings, count: int | None = None) -> str:
-    lines = [f"Группа: <b>{escape(tulgu.group)}</b>"]
+    lines = [f"👥 Группа: <b>{escape(tulgu.group)}</b>"]
     if count is not None:
-        lines.append(f"Занятий загружено: <b>{count}</b>")
+        lines.append(f"📚 Занятий загружено: <b>{count}</b>")
     if tulgu.min_date and tulgu.max_date:
-        lines.append(f"Период: {tulgu.min_date:%d.%m.%Y} – {tulgu.max_date:%d.%m.%Y}")
+        lines.append(f"📆 Период: {tulgu.min_date:%d.%m.%Y} – {tulgu.max_date:%d.%m.%Y}")
     if tulgu.synced_at:
         local = tulgu.synced_at.astimezone(settings.timezone)
-        lines.append(f"Обновлено: {local:%d.%m.%Y %H:%M}")
+        lines.append(f"🕘 Обновлено: {local:%d.%m.%Y %H:%M}")
     return "\n".join(lines)
 
 
@@ -52,16 +52,15 @@ async def send_filter_prompts(message: Message, groups: list[VariantGroup]) -> N
         await message.answer(_prompt_text(group), reply_markup=filter_keyboard(group))
 
 
-async def _sync_and_report(
+async def sync_and_report(
     message: Message,
+    user_id: int,
     group: str,
     db: Database,
     settings: Settings,
     sync_service: SyncService,
     scheduler: ReminderScheduler,
 ) -> None:
-    assert message.from_user
-    user_id = message.from_user.id
     await message.answer(f"⏳ Загружаю расписание группы {escape(group)}…")
     try:
         result: SyncResult = await sync_service.sync(user_id, group)
@@ -81,6 +80,58 @@ async def _sync_and_report(
         await send_filter_prompts(message, result.pending)
 
 
+async def show_status(message: Message, user_id: int, db: Database, settings: Settings) -> None:
+    """Saved group, number of lessons and last sync time (or the usage hint)."""
+    tulgu = await db.get_tulgu(user_id)
+    if tulgu is None:
+        await message.answer(USAGE)
+        return
+    count = await db.count_dated_lessons(user_id)
+    await message.answer(
+        "🏛 <b>Расписание ТулГУ</b>\n━━━━━━━━━━━━━━━\n\n"
+        + _describe(tulgu, settings, count)
+        + "\n\n🔄 Обновить — /sync\n🔀 Подгруппы — /filters\n"
+        "🔁 Другая группа — <code>/tulgu НОМЕР</code>"
+    )
+
+
+async def run_sync(
+    message: Message,
+    user_id: int,
+    db: Database,
+    settings: Settings,
+    sync_service: SyncService,
+    scheduler: ReminderScheduler,
+) -> None:
+    """Re-sync the user's saved group (shared by /sync and the settings menu)."""
+    tulgu = await db.get_tulgu(user_id)
+    if tulgu is None:
+        await message.answer("Группа не выбрана.\n\n" + USAGE)
+        return
+    await sync_and_report(message, user_id, tulgu.group, db, settings, sync_service, scheduler)
+
+
+async def show_filters(
+    message: Message, user_id: int, db: Database, sync_service: SyncService
+) -> None:
+    """Current subgroup choices and keyboards to change them."""
+    if await db.get_tulgu(user_id) is None:
+        await message.answer("Сначала подключите расписание: <code>/tulgu НОМЕР_ГРУППЫ</code>.")
+        return
+    groups = await sync_service.variant_groups(user_id)
+    if not groups:
+        await message.answer("В вашем расписании нет параллельных подгрупп — фильтры не нужны.")
+        return
+    choices = await db.get_filters(user_id)
+    lines = ["🔀 <b>Параллельные подгруппы</b>", "━━━━━━━━━━━━━━━", ""]
+    for group in groups:
+        choice = choices.get(group.key)
+        shown = "не выбрано" if choice is None else ("все" if choice == ALL else choice)
+        lines.append(f"• {escape(group.subject)} ({escape(group.kind)}): <b>{escape(shown)}</b>")
+    await message.answer("\n".join(lines) + "\n\nВыберите заново:")
+    await send_filter_prompts(message, groups)
+
+
 @router.message(Command("tulgu"))
 async def cmd_tulgu(
     message: Message,
@@ -93,22 +144,12 @@ async def cmd_tulgu(
     assert message.from_user
     arg = (command.args or "").strip()
     if not arg:
-        tulgu = await db.get_tulgu(message.from_user.id)
-        if tulgu is None:
-            await message.answer(USAGE)
-            return
-        count = await db.count_dated_lessons(message.from_user.id)
-        await message.answer(
-            "🏛 <b>Расписание ТулГУ</b>\n\n"
-            + _describe(tulgu, settings, count)
-            + "\n\nОбновить — /sync, подгруппы — /filters, другая группа — "
-            "<code>/tulgu НОМЕР</code>."
-        )
+        await show_status(message, message.from_user.id, db, settings)
         return
     if not is_valid_group(arg):
         await message.answer("⚠️ Некорректный номер группы.\n\n" + USAGE)
         return
-    await _sync_and_report(message, arg, db, settings, sync_service, scheduler)
+    await sync_and_report(message, message.from_user.id, arg, db, settings, sync_service, scheduler)
 
 
 @router.message(Command("sync"))
@@ -120,32 +161,13 @@ async def cmd_sync(
     scheduler: ReminderScheduler,
 ) -> None:
     assert message.from_user
-    tulgu = await db.get_tulgu(message.from_user.id)
-    if tulgu is None:
-        await message.answer("Группа не выбрана. " + USAGE)
-        return
-    await _sync_and_report(message, tulgu.group, db, settings, sync_service, scheduler)
+    await run_sync(message, message.from_user.id, db, settings, sync_service, scheduler)
 
 
 @router.message(Command("filters"))
 async def cmd_filters(message: Message, db: Database, sync_service: SyncService) -> None:
     assert message.from_user
-    user_id = message.from_user.id
-    if await db.get_tulgu(user_id) is None:
-        await message.answer("Сначала подключите расписание: <code>/tulgu НОМЕР_ГРУППЫ</code>.")
-        return
-    groups = await sync_service.variant_groups(user_id)
-    if not groups:
-        await message.answer("В вашем расписании нет параллельных подгрупп — фильтры не нужны.")
-        return
-    choices = await db.get_filters(user_id)
-    lines = ["<b>Параллельные подгруппы</b>"]
-    for group in groups:
-        choice = choices.get(group.key)
-        shown = "не выбрано" if choice is None else ("все" if choice == ALL else choice)
-        lines.append(f"• {escape(group.subject)} ({escape(group.kind)}): <b>{escape(shown)}</b>")
-    await message.answer("\n".join(lines) + "\n\nВыберите заново:")
-    await send_filter_prompts(message, groups)
+    await show_filters(message, message.from_user.id, db, sync_service)
 
 
 @router.callback_query(F.data.startswith("flt:"))

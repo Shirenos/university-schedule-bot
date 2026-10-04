@@ -52,10 +52,9 @@ async def _ask_time(message: Message, state: FSMContext, weekday: int) -> None:
     )
 
 
-@router.message(Command("add"))
-async def cmd_add(message: Message, state: FSMContext, db: Database) -> None:
-    assert message.from_user
-    if await db.count_lessons(message.from_user.id) >= MAX_LESSONS_PER_USER:
+async def start_add(message: Message, state: FSMContext, db: Database, user_id: int) -> None:
+    """Begin the guided dialog (shared by /add and the settings menu)."""
+    if await db.count_lessons(user_id) >= MAX_LESSONS_PER_USER:
         await message.answer(
             f"Достигнут лимит: {MAX_LESSONS_PER_USER} пар. Удалите лишние (/list)."
         )
@@ -63,9 +62,16 @@ async def cmd_add(message: Message, state: FSMContext, db: Database) -> None:
     await state.clear()
     await state.set_state(AddLesson.weekday)
     await message.answer(
-        "➕ <b>Новая пара</b> (отмена — /cancel)\n\nВыберите день недели:",
+        "➕ <b>Новая пара</b>\n━━━━━━━━━━━━━━━\n"
+        "Шаг 1 из 7 · отмена — /cancel\n\nВыберите день недели:",
         reply_markup=weekday_keyboard(),
     )
+
+
+@router.message(Command("add"))
+async def cmd_add(message: Message, state: FSMContext, db: Database) -> None:
+    assert message.from_user
+    await start_add(message, state, db, message.from_user.id)
 
 
 @router.callback_query(StateFilter(AddLesson.weekday), F.data.startswith("wd:"))
